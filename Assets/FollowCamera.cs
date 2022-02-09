@@ -11,6 +11,8 @@ public class FollowCamera : MonoBehaviour
     public bool keepRotation = true;
     public bool lookAtTarget = true;
 
+    public float speed = 10f;
+
     // Update is called once per frame
     void Update()
     {
@@ -18,13 +20,23 @@ public class FollowCamera : MonoBehaviour
             return;
         }
 
+        Vector3 targetPosition;
+
         if (keepRotation) {
-            transform.position = target.TransformPoint(shift);
+            targetPosition = target.TransformPoint(shift);
         } else {
-            transform.position = target.position + shift;
+            targetPosition = target.position + shift;
         }
+
+        transform.position = Vector3.Lerp(transform.position, targetPosition, Time.deltaTime * speed);
+
         if (lookAtTarget) {
-            transform.LookAt(target);
+            // transform.LookAt(target);
+            transform.rotation = Quaternion.Lerp(
+                transform.rotation,
+                Quaternion.LookRotation(target.position - transform.position, Vector3.up),
+                Time.deltaTime * speed
+            );
         }
     }
 }

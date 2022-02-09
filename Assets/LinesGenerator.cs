@@ -18,10 +18,12 @@ public class LinesGenerator : MonoBehaviour
     public LayerMask objectLayer;
 
     private ObjectPool<GameObject> roadPool;
-    private List<Transform> allRoads = new List<Transform>();
+    private List<GameObject> allRoads = new List<GameObject>();
     private int roadNumber = 0;
     private ObjectPool<ColorSwitcher> colorSwitcherPool;
+    private Dictionary<GameObject, ColorSwitcher[]> allSwitchers = new Dictionary<GameObject, ColorSwitcher[]>();
     private ObjectPool<Enemy> enemyPool;
+    private Dictionary<GameObject, Enemy[]> allEnemies = new Dictionary<GameObject, Enemy[]>();
 
     void Awake()
     {
@@ -34,8 +36,7 @@ public class LinesGenerator : MonoBehaviour
     {
         // remove invisible line
         if (allRoads.Count > 1 && !isVisible(allRoads[0])) {
-            roadPool.FreeObject(allRoads[0].gameObject);
-            allRoads.RemoveAt(0);
+            RemoveRoad(allRoads[0].gameObject);
         }
 
         // last generated road is invisible, no need for new roads
@@ -89,7 +90,7 @@ public class LinesGenerator : MonoBehaviour
         roadPool.SetParent(this);
 
         if (roadPrefab.scene.IsValid()) {
-            allRoads.Add(roadPrefab.transform);
+            allRoads.Add(roadPrefab);
             roadNumber = 1;
         }
     }
@@ -126,6 +127,32 @@ public class LinesGenerator : MonoBehaviour
         }
     }
 
+    private void RemoveRoad(GameObject road)
+    {
+        roadPool.FreeObject(road);
+        allRoads.Remove(road);
+
+        ColorSwitcher[] switchers;
+        allSwitchers.TryGetValue(road, out switchers);
+        if (switchers != null) {
+            foreach (var switcher in switchers)
+            {
+                colorSwitcherPool.FreeObject(switcher);
+            }
+            allSwitchers.Remove(road);
+        }
+
+        Enemy[] enemies;
+        allEnemies.TryGetValue(road, out enemies);
+        if (enemies != null) {
+            foreach (var enemy in enemies)
+            {
+                enemyPool.FreeObject(enemy);
+            }
+            allEnemies.Remove(road);
+        }
+    }
+
     private void addNewRoad()
     {
         var newRoad = roadPool.GetObject();
@@ -136,7 +163,7 @@ public class LinesGenerator : MonoBehaviour
         );
         newRoad.SetActive(true);
 
-        allRoads.Add(newRoad.transform);
+        allRoads.Add(newRoad);
         roadNumber++;
 
         StartCoroutine(addSwitchers(newRoad));
@@ -150,6 +177,8 @@ public class LinesGenerator : MonoBehaviour
             yield break;
         }
 
+        allSwitchers[road] = new ColorSwitcher[switcherCount];
+
         var bounds = getBounds(road);
 
         for (int i = 0; i < switcherCount; i++)
@@ -159,6 +188,7 @@ public class LinesGenerator : MonoBehaviour
             c.transform.position = getRandomPositionOnRoad(bounds, cb.size);
             c.color = colors[Random.Range(0, colors.Length)];
             c.gameObject.SetActive(true);
+            allSwitchers[road][i] = c;
 
             yield return null;
         }
@@ -171,6 +201,8 @@ public class LinesGenerator : MonoBehaviour
             yield break;
         }
 
+        allEnemies[road] = new Enemy[enemyCount];
+
         var bounds = getBounds(road);
 
         for (int i = 0; i < enemyCount; i++)
@@ -181,6 +213,8 @@ public class LinesGenerator : MonoBehaviour
             e.transform.position = getRandomPositionOnRoad(bounds, eb.size);
             e.color = colors[Random.Range(0, colors.Length)];
             e.gameObject.SetActive(true);
+
+            allEnemies[road][i] = e;
 
             yield return null;
         }
@@ -278,7 +312,7 @@ public class LinesGenerator : MonoBehaviour
         return new Bounds();
     }
 
-    bool isVisible(Transform tr)
+    bool isVisible(GameObject go)
     {
         // foreach (var renderer in tr.GetComponentsInChildren<Renderer>())
         // {
@@ -288,7 +322,7 @@ public class LinesGenerator : MonoBehaviour
         // }
 
         // return false;
-        var bounds = getBounds(tr.gameObject);
+        var bounds = getBounds(go.transform.gameObject);
         
         Plane[] planes = GeometryUtility.CalculateFrustumPlanes(mainCamera);
 
@@ -373,7 +407,7 @@ public class LinesGenerator : MonoBehaviour
                 Debug.DrawLine(renderer.bounds.min, renderer.bounds.max, Color.green);
             }
         }
-        if (isVisible(roadPrefab.transform)) {
+        if (isVisible(roadPrefab)) {
             Debug.DrawLine(leftBottom + left, leftBottom + right, Color.green);
         }
     }

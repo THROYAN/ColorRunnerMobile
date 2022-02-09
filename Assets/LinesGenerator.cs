@@ -208,8 +208,9 @@ public class LinesGenerator : MonoBehaviour
         for (int i = 0; i < enemyCount; i++)
         {
             var e = enemyPool.GetObject();
-            e.onHit += onEnemyHit;
             var eb = getBounds(e.gameObject);
+            // need to enable for collision
+            e.enabled = true;
             e.transform.position = getRandomPositionOnRoad(bounds, eb.size);
             e.color = colors[Random.Range(0, colors.Length)];
             e.gameObject.SetActive(true);
@@ -218,12 +219,6 @@ public class LinesGenerator : MonoBehaviour
 
             yield return null;
         }
-    }
-
-    private void onEnemyHit(Enemy enemy)
-    {
-        enemy.onHit -= onEnemyHit;
-        enemyPool.FreeObject(enemy);
     }
 
     private Vector3 getRandomPositionOnRoad(Bounds roadBounds, Vector3 size)

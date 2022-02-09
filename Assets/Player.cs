@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 public class Player : MonoBehaviour
 {
@@ -13,8 +14,10 @@ public class Player : MonoBehaviour
     public bool clampMovement = false;
     public Animator animator;
     public Renderer[] bodyRenderers;
+    public UnityEvent onDeath = new UnityEvent();
 
-    private int currentLevel = 0;
+    public int CurrentLevel { get; private set; }
+
     private float currentSpeed = 0;
     private Color currentColor;
     private Vector2 movementDirection = Vector2.zero;
@@ -29,7 +32,7 @@ public class Player : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        currentLevel = startLevel;
+        CurrentLevel = startLevel;
         SetColor(startColor);
     }
 
@@ -87,20 +90,26 @@ public class Player : MonoBehaviour
 
     public void HitColor(Color color)
     {
+        Debug.Log(color + " -> " + currentColor);
         if (color == currentColor) {
-            currentLevel++;
+            CurrentLevel++;
         } else {
-            currentLevel--;
+            CurrentLevel--;
         }
 
-        if (currentLevel < 0) {
-            // death
+        if (CurrentLevel > 10) {
+            CurrentLevel = 10;
+        }
+
+        animator.SetInteger("Level", CurrentLevel);
+
+        if (CurrentLevel < 0) {
+            animator.SetTrigger("Death");
+            onDeath.Invoke();
 
             return;
         }
 
-        if (currentLevel > 10) {
-            currentLevel = 10;
-        }
+        transform.localScale = Vector3.one * (CurrentLevel / 10f + 1);
     }
 }

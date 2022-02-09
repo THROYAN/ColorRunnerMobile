@@ -86,6 +86,9 @@ MonoBehaviour:
   animator: {fileID: 6522265869658279858}
   bodyRenderers:
   - {fileID: 742372613494676438}
+  onDeath:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &6522265870467297031
 MonoBehaviour:
   m_ObjectHideFlags: 0

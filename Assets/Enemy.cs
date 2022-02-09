@@ -1,12 +1,13 @@
 using UnityEngine;
+using UnityEngine.Events;
 
 public class Enemy : MonoBehaviour
 {
     public Color color;
     public new Collider collider;
+    public new Rigidbody rigidbody;
     public Renderer[] bodyRenderers;
-    public delegate void OnHit(Enemy enemy);
-    public event OnHit onHit;
+    public UnityEvent onHit = new UnityEvent();
 
     void Awake()
     {
@@ -17,6 +18,9 @@ public class Enemy : MonoBehaviour
 
     void OnEnable()
     {
+        collider.isTrigger = false;
+        rigidbody.isKinematic = false;
+
         if (bodyRenderers == null) {
             return;
         }
@@ -25,6 +29,12 @@ public class Enemy : MonoBehaviour
         {
             renderer.material.color = color;
         }
+    }
+
+    void OnDisable()
+    {
+        collider.isTrigger = true;
+        rigidbody.isKinematic = true;
     }
 
     void OnCollisionEnter(Collision collision)
@@ -37,15 +47,16 @@ public class Enemy : MonoBehaviour
 
         player.HitColor(color);
 
-        if (onHit != null) {
-            onHit(this);
-        }
+        onHit.Invoke();
     }
 
     void OnValidate()
     {
         if (collider == null) {
             collider = GetComponentInChildren<Collider>();
+        }
+        if (rigidbody == null) {
+            rigidbody = GetComponentInChildren<Rigidbody>();
         }
     }
 }

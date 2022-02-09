@@ -240,14 +240,17 @@ public class LinesGenerator : MonoBehaviour
 
         int insurance = 0;
 
-        var point = getPointOnRoad(roadBounds.min, cellSize, col, row);
+        var min = roadBounds.min;
+        min.y += (roadBounds.max.y - roadBounds.min.y) / 2f;
+
+        var point = getPointOnRoad(min, cellSize, col, row);
         while (Physics.OverlapBox(point, cellSize / 2f, Quaternion.identity, objectLayer.value).Length > 0
             && insurance++ < 100
         ) {
             col = Random.Range(0, cols);
             row = Random.Range(0, rows);
 
-            point = getPointOnRoad(roadBounds.min, cellSize, col, row);
+            point = getPointOnRoad(min, cellSize, col, row);
         }
 
         return point;

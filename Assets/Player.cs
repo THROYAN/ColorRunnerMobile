@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -10,6 +11,7 @@ public class Player : MonoBehaviour
     public float acceleration = 1f;
     public bool clampMovement = false;
     public Animator animator;
+    public Renderer[] bodyRenderers;
 
     private int currentLevel = 0;
     private float currentSpeed = 0;
@@ -65,5 +67,17 @@ public class Player : MonoBehaviour
 
         movementDirection.x = Mathf.Clamp(movementDirection.x, -1, 1);
         movementDirection.y = Mathf.Clamp(movementDirection.y, -1, 1);
+    }
+
+    public void SetColor(Color color)
+    {
+        if (bodyRenderers == null) {
+            return;
+        }
+
+        foreach (var renderer in bodyRenderers)
+        {
+            renderer.material.color = color;
+        }
     }
 }

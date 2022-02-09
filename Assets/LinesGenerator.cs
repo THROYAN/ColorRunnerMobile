@@ -1,57 +1,45 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 public class LinesGenerator : MonoBehaviour
 {
-    public GameObject prefab;
-
+    public Color[] colors = new Color[0];
+    public GameObject roadPrefab;
+    public ColorSwitcher colorSwitcherPrefab;
     public Vector3 startPoint;
     public Vector3 startRotation;
-    public Vector2 lineSize;
+    public Vector2 roadSize;
+    public int roadSegmentCount = 3;
+    public Vector2Int colorSwitcherFrequency = new Vector2Int(0, 2);
     public Camera mainCamera;
+    public LayerMask objectLayer;
 
-    private ObjectPool<GameObject> pool;
-    private List<Transform> allLines = new List<Transform>();
-    private int lineNumber = 0;
+    private ObjectPool<GameObject> roadPool;
+    private List<Transform> allRoads = new List<Transform>();
+    private int roadNumber = 0;
+    private ObjectPool<ColorSwitcher> colorSwitcherPool;
 
     void Awake()
     {
-        if (prefab == null) {
-            Debug.LogError("Prefab should be set");
-
-            return;
-        }
-        pool = new ObjectPool<GameObject>(prefab);
-        pool.SetParent(this);
-
-        if (prefab.scene.IsValid()) {
-            allLines.Add(prefab.transform);
-            lineNumber = 1;
-        }
+        initializeRoads();
+        initializeColorSwitchers();
     }
 
     void Update()
     {
         // remove invisible line
-        if (allLines.Count > 1 && !isVisible(allLines[0])) {
-            pool.FreeObject(allLines[0].gameObject);
-            allLines.RemoveAt(0);
+        if (allRoads.Count > 1 && !isVisible(allRoads[0])) {
+            roadPool.FreeObject(allRoads[0].gameObject);
+            allRoads.RemoveAt(0);
         }
 
-        if (allLines.Count > 0 && !isVisible(allLines[allLines.Count - 1])) {
+        // last generated road is invisible, no need for new roads
+        if (allRoads.Count > 0 && !isVisible(allRoads[allRoads.Count - 1])) {
             return;
         }
 
-        var newLine = pool.GetObject();
-        newLine.transform.position = startPoint + Quaternion.Euler(startRotation) * new Vector3(
-            0f,
-            0f,
-            lineSize.y * lineNumber
-        );
-        newLine.SetActive(true);
-
-        allLines.Add(newLine.transform);
-        lineNumber++;
+        addNewRoad();
     }
 
     void OnValidate()
@@ -60,30 +48,131 @@ public class LinesGenerator : MonoBehaviour
             mainCamera = Camera.main;
         }
 
-        if (prefab == null) {
-            prefab = GameObject.Find("Lines");
+        if (roadPrefab == null) {
+            roadPrefab = GameObject.Find("Lines");
 
-            ResetPositionAndRotation();
-            GetSizeFromPrefab();
+            ResetStartPositionAndRotation();
+            ResetRoadSize();
         }
     }
 
-    [ContextMenu("Get size from Prefab")]
-    public void GetSizeFromPrefab()
+    [ContextMenu("Reset road size")]
+    public void ResetRoadSize()
     {
-       var bounds = getBounds(prefab);
+       var bounds = getBounds(roadPrefab);
        
-       lineSize = new Vector2(bounds.size.x, bounds.size.z);
+       roadSize = new Vector2(bounds.size.x, bounds.size.z);
     }
 
-    [ContextMenu("Reset position and rotation")]
-    public void ResetPositionAndRotation()
+    [ContextMenu("Reset road position and rotation")]
+    public void ResetStartPositionAndRotation()
     {
-        if (prefab == null) {
+        if (roadPrefab == null) {
             return;
         }
-        startPoint = prefab.transform.position;
-        startRotation = prefab.transform.rotation.eulerAngles;
+        startPoint = roadPrefab.transform.position;
+        startRotation = roadPrefab.transform.rotation.eulerAngles;
+    }
+
+    private void initializeRoads()
+    {
+        if (roadPrefab == null) {
+            Debug.LogError("Road prefab must be set");
+
+            return;
+        }
+        roadPool = new ObjectPool<GameObject>(roadPrefab, 5, false);
+        roadPool.SetParent(this);
+
+        if (roadPrefab.scene.IsValid()) {
+            allRoads.Add(roadPrefab.transform);
+            roadNumber = 1;
+        }
+    }
+
+    private void initializeColorSwitchers()
+    {
+        if (colorSwitcherPrefab == null) {
+            Debug.LogError("ColorSwitcher prefab must be set");
+
+            return;
+        }
+        colorSwitcherPool = new ObjectPool<ColorSwitcher>(colorSwitcherPrefab, 5, false);
+        colorSwitcherPool.SetParent(this);
+
+        if (colorSwitcherPrefab.gameObject.scene.IsValid()) {
+            colorSwitcherPool.FreeObject(colorSwitcherPrefab);
+            colorSwitcherPrefab.gameObject.SetActive(false);
+        }
+    }
+
+    private void addNewRoad()
+    {
+        var newRoad = roadPool.GetObject();
+        newRoad.transform.position = startPoint + Quaternion.Euler(startRotation) * new Vector3(
+            0f,
+            0f,
+            roadSize.y * roadNumber
+        );
+        newRoad.SetActive(true);
+
+        allRoads.Add(newRoad.transform);
+        roadNumber++;
+
+        StartCoroutine(addSwitchers(newRoad));
+    }
+
+    private IEnumerator addSwitchers(GameObject road)
+    {
+        int switcherCount = Random.Range(colorSwitcherFrequency.x, colorSwitcherFrequency.y + 1);
+        Debug.Log(switcherCount);
+        if (switcherCount <= 0 || colors.Length == 0) {
+            yield break;
+        }
+
+        var bounds = getBounds(road);
+
+        for (int i = 0; i < switcherCount; i++)
+        {
+            var c = colorSwitcherPool.GetObject();
+            var cb = getBounds(c.gameObject);
+            c.transform.position = getRandomPositionOnRoad(bounds, cb.size);
+            c.color = colors[Random.Range(0, colors.Length)];
+            c.gameObject.SetActive(true);
+
+            yield return null;
+        }
+    }
+
+    private Vector3 getRandomPositionOnRoad(Bounds roadBounds, Vector3 size)
+    {
+        // int cols = Mathf.CeilToInt(roadBounds.size.x / size.x);
+        int cols = roadSegmentCount;
+        int rows = Mathf.CeilToInt(roadSize.y / size.z);
+
+        Vector3 cellSize = new Vector3(roadSize.x / (float)cols, 0f, size.z);
+
+        int col = Random.Range(0, cols);
+        int row = Random.Range(0, rows);
+
+        int insurance = 0;
+
+        var point = getPointOnRoad(roadBounds.min, cellSize, col, row);
+        while (Physics.OverlapBox(point, cellSize / 2f, Quaternion.identity, objectLayer.value).Length > 0
+            && insurance++ < 100
+        ) {
+            col = Random.Range(0, cols);
+            row = Random.Range(0, rows);
+
+            point = getPointOnRoad(roadBounds.min, cellSize, col, row);
+        }
+
+        return point;
+    }
+
+    private Vector3 getPointOnRoad(Vector3 leftBottom, Vector3 cellSize, int col, int row)
+    {
+        return new Vector3(leftBottom.x + (col + 0.5f) * cellSize.x, leftBottom.y, leftBottom.z + (row + 0.5f) * cellSize.z);
     }
 
     // Getting prefab bounds in any way
@@ -113,24 +202,14 @@ public class LinesGenerator : MonoBehaviour
                 var cSize = collider.bounds.size;
                 var cPos = collider.bounds.min;
 
-                if (min.x > cPos.x) {
-                    min.x = cPos.x;
-                }
-                if (max.x < cPos.x + cSize.x) {
-                    max.x = cPos.x + cSize.x;
-                }
-                if (min.y > cPos.y) {
-                    min.y = cPos.y;
-                }
-                if (max.y < cPos.y + cSize.y) {
-                    max.y = cPos.y + cSize.y;
-                }
-                if (min.z > cPos.z) {
-                    min.z = cPos.z;
-                }
-                if (max.z < cPos.z + cSize.z) {
-                    max.z = cPos.z + cSize.z;
-                }
+                min.x = Mathf.Min(min.x, cPos.x);
+                max.x = Mathf.Max(max.x, cPos.x + cSize.x);
+
+                min.y = Mathf.Min(min.y, cPos.y);
+                max.y = Mathf.Max(max.y, cPos.y + cSize.y);
+
+                min.z = Mathf.Min(min.z, cPos.z);
+                max.z = Mathf.Max(max.z, cPos.z + cSize.z);
             }
             Vector3 size = max - min;;
 
@@ -205,11 +284,11 @@ public class LinesGenerator : MonoBehaviour
 
     void OnDrawGizmosSelected()
     {
-        if (prefab == null) {
+        if (roadPrefab == null) {
             return;
         }
 
-        var bounds = getBounds(prefab);
+        var bounds = getBounds(roadPrefab);
 
         if (bounds.size.sqrMagnitude < 0.1f) {
             return;
@@ -234,13 +313,13 @@ public class LinesGenerator : MonoBehaviour
         bounds.SetMinMax(mainCamera.WorldToViewportPoint(bounds.min), mainCamera.WorldToViewportPoint(bounds.max));
         Debug.DrawLine(bounds.min, bounds.max, Color.magenta);
 
-        foreach (var renderer in prefab.GetComponentsInChildren<Renderer>())
+        foreach (var renderer in roadPrefab.GetComponentsInChildren<Renderer>())
         {
             if (renderer.isVisible) {
                 Debug.DrawLine(renderer.bounds.min, renderer.bounds.max, Color.green);
             }
         }
-        if (isVisible(prefab.transform)) {
+        if (isVisible(roadPrefab.transform)) {
             Debug.DrawLine(leftBottom + left, leftBottom + right, Color.green);
         }
     }

@@ -53,9 +53,7 @@ public class ObjectPool<T> where T: Object
         }
 
         objectList.Add(obj);
-        if (obj is GameObject) {
-            (obj as GameObject).SetActive(false);
-        }
+        prepareFreeObject(obj);
     }
 
     public void SetParent(MonoBehaviour parent)
@@ -68,12 +66,12 @@ public class ObjectPool<T> where T: Object
         objectList.Capacity += poolSize;
 
         // create in background
-        if (parent != null && poolSize > 1) {
-            objectList.Add(createNewObject());
-            parent.StartCoroutine(populateCouroutine(poolSize - 1));
+        // if (parent != null && poolSize > 1) {
+        //     objectList.Add(createNewObject());
+        //     parent.StartCoroutine(populateCouroutine(poolSize - 1));
 
-            return;
-        }
+        //     return;
+        // }
 
         for (int i = 0; i < poolSize; i++)
         {
@@ -88,12 +86,23 @@ public class ObjectPool<T> where T: Object
             : Object.Instantiate<T>(obj, parent.transform);
 
         newObj.name = obj.name + " #" + lastId++;
-        if (newObj is GameObject) {
-            (newObj as GameObject).SetActive(false);
-        }
+        prepareFreeObject(newObj);
 
         return newObj;
-    }   
+    }
+
+    private void prepareFreeObject(T obj)
+    {
+        if (obj is GameObject) {
+            (obj as GameObject).SetActive(false);
+        }
+        // if (obj is Behaviour) {
+        //     (obj as Behaviour).enabled = false;
+        // }
+        if (obj is Component) {
+            (obj as Component).gameObject.SetActive(false);
+        }
+    }
 
     private IEnumerator populateCouroutine(int count)
     {

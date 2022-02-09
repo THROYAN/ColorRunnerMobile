@@ -8,6 +8,7 @@ public class ColorSwitcher : MonoBehaviour
 {
     public Color color;
     public UnityEvent onHit = new UnityEvent();
+    public new ParticleSystem particleSystem;
 
     private new Collider collider;
     private new Renderer renderer;
@@ -21,6 +22,9 @@ public class ColorSwitcher : MonoBehaviour
     void OnEnable()
     {
         renderer.material.color = color;
+        if (particleSystem != null) {
+            particleSystem.startColor = color;
+        }
     }
 
     void OnTriggerEnter(Collider other)

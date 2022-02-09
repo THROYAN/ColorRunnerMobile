@@ -19,12 +19,11 @@ public class ColorSwitcher : MonoBehaviour
     void OnEnable()
     {
         renderer.material.color = color;
-        Debug.Log("Enabled");
     }
 
     void OnTriggerEnter(Collider other)
     {
-        var player = other.GetComponent<Player>();
+        var player = other.GetComponentInParent<Player>();
 
         if (player == null) {
             return;

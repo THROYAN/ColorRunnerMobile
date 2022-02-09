@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
+    public Color startColor;
     public int startLevel = 0;
     public int winLevel = 10;
     public float maxSpeed = 10.0f;
@@ -15,6 +16,7 @@ public class Player : MonoBehaviour
 
     private int currentLevel = 0;
     private float currentSpeed = 0;
+    private Color currentColor;
     private Vector2 movementDirection = Vector2.zero;
 
     void OnValidate()
@@ -28,6 +30,7 @@ public class Player : MonoBehaviour
     void Start()
     {
         currentLevel = startLevel;
+        SetColor(startColor);
     }
 
     // Update is called once per frame
@@ -71,6 +74,7 @@ public class Player : MonoBehaviour
 
     public void SetColor(Color color)
     {
+        currentColor = color;
         if (bodyRenderers == null) {
             return;
         }
@@ -78,6 +82,25 @@ public class Player : MonoBehaviour
         foreach (var renderer in bodyRenderers)
         {
             renderer.material.color = color;
+        }
+    }
+
+    public void HitColor(Color color)
+    {
+        if (color == currentColor) {
+            currentLevel++;
+        } else {
+            currentLevel--;
+        }
+
+        if (currentLevel < 0) {
+            // death
+
+            return;
+        }
+
+        if (currentLevel > 10) {
+            currentLevel = 10;
         }
     }
 }

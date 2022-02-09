@@ -7,11 +7,13 @@ public class LinesGenerator : MonoBehaviour
     public Color[] colors = new Color[0];
     public GameObject roadPrefab;
     public ColorSwitcher colorSwitcherPrefab;
+    public Enemy enemyPrefab;
     public Vector3 startPoint;
     public Vector3 startRotation;
     public Vector2 roadSize;
     public int roadSegmentCount = 3;
     public Vector2Int colorSwitcherFrequency = new Vector2Int(0, 2);
+    public Vector2Int enemyFrequency = new Vector2Int(5, 20);
     public Camera mainCamera;
     public LayerMask objectLayer;
 
@@ -19,11 +21,13 @@ public class LinesGenerator : MonoBehaviour
     private List<Transform> allRoads = new List<Transform>();
     private int roadNumber = 0;
     private ObjectPool<ColorSwitcher> colorSwitcherPool;
+    private ObjectPool<Enemy> enemyPool;
 
     void Awake()
     {
         initializeRoads();
         initializeColorSwitchers();
+        initializeEnemies();
     }
 
     void Update()
@@ -106,6 +110,22 @@ public class LinesGenerator : MonoBehaviour
         }
     }
 
+    private void initializeEnemies()
+    {
+        if (enemyPrefab == null) {
+            Debug.LogError("Enemy prefab must be set");
+
+            return;
+        }
+        enemyPool = new ObjectPool<Enemy>(enemyPrefab, 5, false);
+        enemyPool.SetParent(this);
+
+        if (enemyPrefab.gameObject.scene.IsValid()) {
+            enemyPool.FreeObject(enemyPrefab);
+            enemyPrefab.gameObject.SetActive(false);
+        }
+    }
+
     private void addNewRoad()
     {
         var newRoad = roadPool.GetObject();
@@ -120,12 +140,12 @@ public class LinesGenerator : MonoBehaviour
         roadNumber++;
 
         StartCoroutine(addSwitchers(newRoad));
+        StartCoroutine(addEnemies(newRoad));
     }
 
     private IEnumerator addSwitchers(GameObject road)
     {
         int switcherCount = Random.Range(colorSwitcherFrequency.x, colorSwitcherFrequency.y + 1);
-        Debug.Log(switcherCount);
         if (switcherCount <= 0 || colors.Length == 0) {
             yield break;
         }
@@ -144,13 +164,47 @@ public class LinesGenerator : MonoBehaviour
         }
     }
 
+    private IEnumerator addEnemies(GameObject road)
+    {
+        int enemyCount = Random.Range(enemyFrequency.x, enemyFrequency.y + 1);
+        if (enemyCount <= 0 || colors.Length == 0) {
+            yield break;
+        }
+
+        var bounds = getBounds(road);
+
+        for (int i = 0; i < enemyCount; i++)
+        {
+            var e = enemyPool.GetObject();
+            e.onHit += onEnemyHit;
+            var eb = getBounds(e.gameObject);
+            e.transform.position = getRandomPositionOnRoad(bounds, eb.size);
+            e.color = colors[Random.Range(0, colors.Length)];
+            e.gameObject.SetActive(true);
+
+            yield return null;
+        }
+    }
+
+    private void onEnemyHit(Enemy enemy)
+    {
+        enemy.onHit -= onEnemyHit;
+        enemyPool.FreeObject(enemy);
+    }
+
     private Vector3 getRandomPositionOnRoad(Bounds roadBounds, Vector3 size)
     {
         // int cols = Mathf.CeilToInt(roadBounds.size.x / size.x);
         int cols = roadSegmentCount;
-        int rows = Mathf.CeilToInt(roadSize.y / size.z);
+        float cellHeight = roadSize.x / (float)cols;
+        float cellWidth = size.z;
+        if (cellWidth <= 0.1f) {
+            cellWidth = cellHeight;
+        }
 
-        Vector3 cellSize = new Vector3(roadSize.x / (float)cols, 0f, size.z);
+        int rows = Mathf.CeilToInt(roadSize.y / cellWidth);
+
+        Vector3 cellSize = new Vector3(cellHeight, 0f, cellWidth);
 
         int col = Random.Range(0, cols);
         int row = Random.Range(0, rows);
